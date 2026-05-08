@@ -13,6 +13,13 @@ import (
 	"github.com/tess1o/go-ecoflow"
 )
 
+// socWarmupTimeout bounds how long soc() blocks on the first call while
+// waiting for the first BMS payload. Stream devices publish SoC only as
+// part of periodic full BMS dumps (empirically every ~30 s per device);
+// the warmup therefore gives every configured serial one publish cycle
+// plus a safety margin before giving up and returning ErrNotAvailable.
+const socWarmupTimeout = 45 * time.Second
+
 // EcoFlowStreamMqtt is a dedicated meter type for the EcoFlow Stream family
 // that uses the public MQTT API for live data.
 //
@@ -44,6 +51,12 @@ type EcoFlowStreamMqtt struct {
 	powerKeys    []string // summed into power
 	powerNegKeys []string // subtracted from power
 	socKey       string   // battery state-of-charge key
+
+	// socReady is closed once at least one tracked serial has reported
+	// the configured socKey via MQTT or the warmup timeout elapsed.
+	// soc() blocks on it to avoid surfacing a spurious "not available"
+	// error during MQTT warmup on startup.
+	socReady chan struct{}
 }
 
 func init() {
@@ -213,7 +226,48 @@ func NewEcoFlowStreamMqtt(ctx context.Context, accessKey, secretKey, serial stri
 		}
 	}()
 
+	// Prepare the SoC warmup gate. For non-battery meters close it
+	// immediately; for battery meters a background goroutine polls the
+	// MQTT cache and closes it as soon as any serial reports the soc
+	// key, or after socWarmupTimeout.
+	m.socReady = make(chan struct{})
+	if m.socKey == "" {
+		close(m.socReady)
+	} else {
+		go m.awaitSocReady(socWarmupTimeout)
+	}
+
 	return m, nil
+}
+
+// awaitSocReady closes m.socReady once any tracked serial has a cached
+// MQTT value for m.socKey, or when the timeout elapses. Launched once
+// per meter from the constructor; every exit path closes the channel
+// exactly once.
+func (m *EcoFlowStreamMqtt) awaitSocReady(timeout time.Duration) {
+	deadline := time.NewTimer(timeout)
+	defer deadline.Stop()
+	tick := time.NewTicker(500 * time.Millisecond)
+	defer tick.Stop()
+
+	for {
+		for _, sn := range m.serials {
+			if _, ok := m.mqttValue(sn, m.socKey); ok {
+				close(m.socReady)
+				return
+			}
+		}
+		select {
+		case <-m.ctx.Done():
+			close(m.socReady)
+			return
+		case <-deadline.C:
+			m.log.DEBUG.Printf("soc warmup: no %s received within %s, proceeding", m.socKey, timeout)
+			close(m.socReady)
+			return
+		case <-tick.C:
+		}
+	}
 }
 
 // fetchData retrieves the configured parameters for a single serial.
@@ -364,9 +418,21 @@ func (m *EcoFlowStreamMqtt) mqttValue(sn, key string) (float64, bool) {
 // serials (each contributing serial weighted equally, matching the EcoFlow
 // app's cascade view). Per-device REST failures are logged and skipped so
 // one failing unit doesn't hide the SoC of the remaining devices.
+//
+// On the first call, soc blocks on the MQTT warmup gate (see
+// awaitSocReady). Stream devices publish SoC only as part of periodic
+// full BMS dumps (~30 s per device), so without this gate every fresh
+// startup would surface one or more bogus "soc: not available" errors
+// before the initial payload has been received.
 func (m *EcoFlowStreamMqtt) soc() (float64, error) {
 	if m.socKey == "" {
 		return 0, api.ErrNotAvailable
+	}
+
+	select {
+	case <-m.socReady:
+	case <-m.ctx.Done():
+		return 0, m.ctx.Err()
 	}
 
 	var (
