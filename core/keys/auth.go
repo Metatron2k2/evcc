@@ -4,4 +4,5 @@ const (
 	AdminPassword = "adminPassword"
 	JwtSecret     = "jwtSecretKey"
 	ApiKey        = "apiKey"
+	UiLockPin     = "uiLockPin"
 )
