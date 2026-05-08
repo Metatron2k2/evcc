@@ -134,6 +134,7 @@ export default defineComponent({
 			scrollTimeout: null as Timeout,
 			highlightedIndex: 0,
 			viewportHeight: 0 as number,
+			viewportWidth: 0 as number,
 		};
 	},
 	computed: {
@@ -144,11 +145,15 @@ export default defineComponent({
 			return this.loadpoints.length > 1;
 		},
 		fullWidth() {
+			if (this.viewportWidth < 992) {
+				return false;
+			}
+			const landscape = this.viewportWidth > this.viewportHeight;
 			return (
-				// breakpoint lg, tall screen, 2 loadpoints rows
-				(this.loadpoints.length === 2 && this.viewportHeight >= 1450) ||
-				// breakpoint lg, taller screen, 3 loadpoints rows
-				(this.loadpoints.length === 3 && this.viewportHeight >= 1900)
+				// desktop breakpoint, 2 loadpoints rows
+				(this.loadpoints.length === 2 && this.viewportHeight >= (landscape ? 1050 : 1450)) ||
+				// desktop breakpoint, 3 loadpoints rows
+				(this.loadpoints.length === 3 && this.viewportHeight >= (landscape ? 1500 : 1900))
 			);
 		},
 	},
@@ -203,6 +208,7 @@ export default defineComponent({
 		},
 		updateViewport() {
 			this.viewportHeight = window.innerHeight;
+			this.viewportWidth = window.innerWidth;
 		},
 		left(index: number) {
 			return (this.$refs["carousel"]?.children[0] as HTMLElement).offsetWidth * index;
