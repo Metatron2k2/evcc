@@ -29,6 +29,7 @@ import (
 	"github.com/evcc-io/evcc/util/pipe"
 	"github.com/evcc-io/evcc/util/sponsor"
 	"github.com/evcc-io/evcc/util/telemetry"
+	"github.com/evcc-io/evcc/util/uilock"
 	_ "github.com/joho/godotenv/autoload"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/spf13/cast"
@@ -187,6 +188,15 @@ func runRoot(cmd *cobra.Command, args []string) {
 		err = configureEnvironment(cmd, &conf)
 	}
 
+	// configure network
+	if err == nil {
+		err = networkSettings(&conf.Network)
+	}
+
+	// configure UI lock (after database)
+	if err == nil {
+		err = uilockSettings(&conf.UILock)
+	}
 	// configure plugin external url
 	if err == nil {
 		// network configuration complete, start dependent services like HomeAssistant discovery
@@ -375,6 +385,7 @@ func runRoot(cmd *cobra.Command, args []string) {
 	valueChan <- util.Param{Key: keys.ModbusProxy, Val: conf.ModbusProxy}
 	valueChan <- util.Param{Key: keys.Mqtt, Val: conf.Mqtt}
 	valueChan <- util.Param{Key: keys.Network, Val: conf.Network}
+	valueChan <- util.Param{Key: keys.UILock, Val: uilock.NewManager().Published(server.CurrentUILockConfig(conf.UILock))}
 	valueChan <- util.Param{Key: keys.Ocpp, Val: globalconfig.ConfigStatus{
 		Config: conf.Ocpp,
 		Status: ocpp.GetStatus(),
@@ -436,9 +447,12 @@ func runRoot(cmd *cobra.Command, args []string) {
 		valueChan <- util.Param{Key: keys.DemoMode, Val: true}
 	}
 
+	uilockMgr := uilock.NewManager()
 	httpd.RegisterSystemHandler(site, func(k string, v any) {
 		valueChan <- util.Param{Key: k, Val: v}
-	}, cache, authObject, func() {
+	}, cache, authObject, uilockMgr, func() globalconfig.UILock {
+		return server.CurrentUILockConfig(conf.UILock)
+	}, func() {
 		log.INFO.Println("evcc was stopped by user. OS should restart the service. Or restart manually.")
 		err = errors.New("restart required") // https://gokrazy.org/development/process-interface/
 		once.Do(func() { close(stopC) })     // signal loop to end
