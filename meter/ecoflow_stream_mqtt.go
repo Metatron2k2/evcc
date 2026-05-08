@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/evcc-io/evcc/api"
+	"github.com/evcc-io/evcc/api/implement"
 	"github.com/evcc-io/evcc/util"
 	"github.com/spf13/cast"
 	"github.com/tess1o/go-ecoflow"
@@ -37,6 +38,7 @@ const socWarmupTimeout = 45 * time.Second
 //   - SoC as the cascade average and battery power as inputWatts -
 //     outputWatts (then inverted to evcc's sign convention).
 type EcoFlowStreamMqtt struct {
+	implement.Caps
 	ctx     context.Context
 	log     *util.Logger
 	usage   string
@@ -130,10 +132,10 @@ func NewEcoFlowStreamMqttFromConfig(ctx context.Context, other map[string]any) (
 	}
 
 	if cc.Usage == "battery" {
-		return decorateMeterBattery(
-			m, nil, m.soc, cc.batteryCapacity.Decorator(),
-			cc.batterySocLimits.Decorator(), cc.batteryPowerLimits.Decorator(), nil,
-		), nil
+		implement.Has(m, implement.Battery(m.soc))
+		implement.May(m, implement.BatteryCapacity(cc.batteryCapacity.Decorator()))
+		implement.May(m, implement.BatterySocLimiter(cc.batterySocLimits.Decorator()))
+		implement.May(m, implement.BatteryPowerLimiter(cc.batteryPowerLimits.Decorator()))
 	}
 
 	return m, nil
@@ -152,6 +154,7 @@ func NewEcoFlowStreamMqtt(ctx context.Context, accessKey, secretKey, serial stri
 	}
 
 	m := &EcoFlowStreamMqtt{
+		Caps:         implement.New(),
 		ctx:          ctx,
 		log:          util.NewLogger("ecoflow-stream-mqtt"),
 		primary:      serial,
