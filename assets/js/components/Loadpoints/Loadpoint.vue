@@ -1,98 +1,156 @@
 <template>
-	<div class="loadpoint d-flex flex-column pt-4 pb-2 px-3 px-sm-4 mx-2 mx-sm-0">
+	<Teleport to="body" :disabled="!loadpointViewportMaximized">
 		<div
-			class="d-block d-sm-flex justify-content-between align-items-center mb-3"
-			:class="expandLoadpointHeader ? 'd-lg-block d-xl-flex' : ''"
+			:class="
+				loadpointViewportMaximized
+					? 'loadpoint-viewport-overlay safe-area-inset'
+					: 'loadpoint-inline-host'
+			"
 		>
-			<div class="d-flex justify-content-between align-items-center mb-3 text-truncate">
-				<h3 class="me-2 mb-0 text-truncate d-flex">
-					<VehicleIcon
-						v-if="chargerIcon"
-						:name="chargerIcon"
-						class="me-2 flex-shrink-0"
-					/>
-					<div class="text-truncate">
-						{{ loadpointTitle }}
+			<div
+				class="loadpoint d-flex flex-column pt-4 pb-2 px-3 px-sm-4"
+				v-bind="loadpointRootAttrs"
+				:class="[
+					loadpointViewportMaximized
+						? 'loadpoint--viewport-expanded flex-grow-1 mx-0'
+						: 'mx-2 mx-sm-0',
+				]"
+			>
+				<!-- xs: stacked -->
+				<div class="d-flex d-sm-none flex-column mb-3">
+					<div class="d-flex justify-content-between align-items-center gap-2 mb-3">
+						<div class="d-flex align-items-center gap-2 min-w-0 flex-grow-1">
+							<h3
+								v-if="!isDesktopBreakpoint"
+								class="mb-0 text-truncate d-flex min-w-0 flex-grow-1"
+							>
+								<VehicleIcon
+									v-if="chargerIcon"
+									:name="chargerIcon"
+									class="me-2 flex-shrink-0"
+								/>
+								<div class="text-truncate">
+									{{ loadpointTitle }}
+								</div>
+							</h3>
+							<ViewportToggleButton
+								:expanded="loadpointViewportMaximized"
+								:mobile="true"
+								@toggle="toggleViewport"
+							/>
+						</div>
+						<LoadpointSettingsButton
+							:class="expandLoadpointHeader ? 'd-lg-block d-xl-none' : ''"
+							class="flex-shrink-0"
+							@click="openSettingsModal"
+						/>
 					</div>
-				</h3>
-				<LoadpointSettingsButton
-					:class="expandLoadpointHeader ? 'd-lg-block d-xl-none' : ''"
-					class="d-block d-sm-none"
-					@click="openSettingsModal"
-				/>
-			</div>
-			<div class="mb-3 d-flex align-items-center">
-				<Mode class="flex-grow-1" v-bind="modeProps" @updated="setTargetMode" />
-				<LoadpointSettingsButton
-					:id="id"
-					:class="expandLoadpointHeader ? 'd-lg-none d-xl-block' : ''"
-					class="d-none d-sm-block ms-2"
-					@click="openSettingsModal"
-				/>
-			</div>
-		</div>
-
-		<div
-			v-if="remoteDisabled"
-			class="alert alert-warning my-4 py-2"
-			:class="`${remoteDisabled === 'hard' ? 'alert-danger' : 'alert-warning'}`"
-			role="alert"
-		>
-			{{
-				$t(
-					remoteDisabled === "hard"
-						? "main.loadpoint.remoteDisabledHard"
-						: "main.loadpoint.remoteDisabledSoft",
-					{ source: remoteDisabledSource }
-				)
-			}}
-		</div>
-
-		<div class="details d-flex align-items-start mb-2">
-			<div>
-				<div class="d-flex align-items-center">
-					<LabelAndValue
-						:label="$t('main.loadpoint.power')"
-						:value="chargePower"
-						:valueFmt="fmtPower"
-						class="mb-2 text-nowrap text-truncate-xs-only"
-						align="start"
-					/>
-					<shopicon-regular-lightning
-						class="text-evcc opacity-transiton"
-						:class="`opacity-${showChargingIndicator ? '100' : '0'}`"
-						size="m"
-					></shopicon-regular-lightning>
+					<Mode v-if="!isDesktopBreakpoint" v-bind="modeProps" @updated="setTargetMode" />
 				</div>
-				<Phases
-					v-bind="phasesProps"
-					class="opacity-transiton"
-					:class="`opacity-${showChargingIndicator ? '100' : '0'}`"
+				<!-- sm+: title, expand/collapse, mode, settings in one row -->
+				<div
+					class="d-none d-sm-flex align-items-center gap-2 mb-3 flex-wrap loadpoint-header-wide"
+				>
+					<h3
+						v-if="isDesktopBreakpoint"
+						class="mb-0 text-truncate d-flex min-w-0 loadpoint-header-wide__title"
+					>
+						<VehicleIcon
+							v-if="chargerIcon"
+							:name="chargerIcon"
+							class="me-2 flex-shrink-0"
+						/>
+						<div class="text-truncate">
+							{{ loadpointTitle }}
+						</div>
+					</h3>
+					<ViewportToggleButton
+						:expanded="loadpointViewportMaximized"
+						@toggle="toggleViewport"
+					/>
+					<Mode
+						v-if="isDesktopBreakpoint"
+						class="loadpoint-header-wide__mode flex-shrink-0"
+						v-bind="modeProps"
+						@updated="setTargetMode"
+					/>
+					<LoadpointSettingsButton
+						:id="id"
+						:class="expandLoadpointHeader ? 'd-lg-none d-xl-block' : ''"
+						class="flex-shrink-0"
+						@click="openSettingsModal"
+					/>
+				</div>
+				<LoadpointSettingsModal
+					:id="id"
+					v-bind="settingsModal"
+					@maxcurrent-updated="setMaxCurrent"
+					@mincurrent-updated="setMinCurrent"
+					@phasesconfigured-updated="setPhasesConfigured"
+					@batteryboostlimit-updated="setBatteryBoostLimit"
+				/>
+
+				<div
+					v-if="remoteDisabled"
+					class="alert alert-warning my-4 py-2"
+					:class="`${remoteDisabled === 'hard' ? 'alert-danger' : 'alert-warning'}`"
+					role="alert"
+				>
+					{{
+						$t(
+							remoteDisabled === "hard"
+								? "main.loadpoint.remoteDisabledHard"
+								: "main.loadpoint.remoteDisabledSoft",
+							{ source: remoteDisabledSource }
+						)
+					}}
+				</div>
+
+				<div class="details d-flex align-items-start mb-2">
+					<div>
+						<div class="d-flex align-items-center">
+							<LabelAndValue
+								:label="$t('main.loadpoint.power')"
+								:value="chargePower"
+								:valueFmt="fmtPower"
+								class="mb-2 text-nowrap text-truncate-xs-only"
+								align="start"
+							/>
+							<shopicon-regular-lightning
+								class="text-evcc opacity-transiton"
+								:class="`opacity-${showChargingIndicator ? '100' : '0'}`"
+								size="m"
+							></shopicon-regular-lightning>
+						</div>
+						<Phases
+							v-bind="phasesProps"
+							class="opacity-transiton"
+							:class="`opacity-${showChargingIndicator ? '100' : '0'}`"
+						/>
+					</div>
+					<LabelAndValue
+						v-show="socBasedCharging"
+						:label="$t('main.loadpoint.charged')"
+						:value="chargedEnergy"
+						:valueFmt="fmtEnergy"
+						align="center"
+					/>
+					<LoadpointSessionInfo v-bind="sessionInfoProps" />
+				</div>
+				<hr class="divider" />
+				<Vehicle
+					class="flex-grow-1 d-flex flex-column"
+					v-bind="vehicleProps"
+					@limit-soc-updated="setLimitSoc"
+					@limit-energy-updated="setLimitEnergy"
+					@change-vehicle="changeVehicle"
+					@remove-vehicle="removeVehicle"
+					@open-loadpoint-settings="openSettingsModal"
+					@batteryboost-updated="setBatteryBoost"
 				/>
 			</div>
-			<LabelAndValue
-				v-show="socBasedCharging"
-				:label="$t('main.loadpoint.charged')"
-				:value="chargedEnergy"
-				:valueFmt="fmtEnergy"
-				align="center"
-			/>
-			<LoadpointSessionInfo v-bind="sessionInfoProps" />
 		</div>
-		<hr class="divider" />
-		<Vehicle
-			class="flex-grow-1 d-flex flex-column justify-content-end"
-			v-bind="vehicleProps"
-			:soc-per-kwh="socPerKwh"
-			@limit-soc-updated="setLimitSoc"
-			@limit-energy-updated="setLimitEnergy"
-			@change-vehicle="changeVehicle"
-			@remove-vehicle="removeVehicle"
-			@open-loadpoint-settings="openSettingsModal"
-			@batteryboost-updated="setBatteryBoost"
-			@open-modal="(openArrivalTab) => $emit('open-charging-plan-modal', openArrivalTab)"
-		/>
-	</div>
+	</Teleport>
 </template>
 
 <script lang="ts">
@@ -109,9 +167,12 @@ import SettingsButton from "./SettingsButton.vue";
 import SettingsModal from "./SettingsModal.vue";
 import VehicleIcon from "../VehicleIcon";
 import SessionInfo from "./SessionInfo.vue";
+import ViewportToggleButton from "./ViewportToggleButton.vue";
+import Modal from "bootstrap/js/dist/modal";
 import { defineComponent, type PropType } from "vue";
 import type {
 	CHARGE_MODE,
+	PHASES,
 	PHASE_ACTION,
 	PV_ACTION,
 	CHARGER_STATUS_REASON,
@@ -123,6 +184,30 @@ import type {
 } from "@/types/evcc";
 import type { PlanStrategy } from "@/components/ChargingPlans/types";
 
+const maximizedLoadpointIds = new Set<string>();
+let previousBodyOverflow: string | null = null;
+
+const setBodyScrollLock = (id: string, expanded: boolean) => {
+	if (typeof document === "undefined") {
+		return;
+	}
+
+	if (expanded) {
+		if (maximizedLoadpointIds.size === 0) {
+			previousBodyOverflow = document.body.style.overflow;
+			document.body.style.overflow = "hidden";
+		}
+		maximizedLoadpointIds.add(id);
+		return;
+	}
+
+	maximizedLoadpointIds.delete(id);
+	if (maximizedLoadpointIds.size === 0) {
+		document.body.style.overflow = previousBodyOverflow ?? "";
+		previousBodyOverflow = null;
+	}
+};
+
 export default defineComponent({
 	name: "Loadpoint",
 	components: {
@@ -131,10 +216,13 @@ export default defineComponent({
 		Phases,
 		LabelAndValue,
 		LoadpointSettingsButton: SettingsButton,
+		LoadpointSettingsModal: SettingsModal,
 		LoadpointSessionInfo: SessionInfo,
 		VehicleIcon,
+		ViewportToggleButton,
 	},
 	mixins: [formatter, collector],
+	inheritAttrs: false,
 	props: {
 		id: { type: String, required: true },
 		single: Boolean,
@@ -165,7 +253,6 @@ export default defineComponent({
 		chargerStatusReason: String as PropType<CHARGER_STATUS_REASON | null>,
 		chargerFeatureIntegratedDevice: Boolean,
 		chargerFeatureHeating: Boolean,
-		chargerFeatureContinuous: Boolean,
 		chargerIcon: String as PropType<string | null>,
 
 		// vehicle
@@ -235,17 +322,7 @@ export default defineComponent({
 		forecast: Object as PropType<Forecast>,
 		lastSmartCostLimit: Number,
 		lastSmartFeedInPriorityLimit: Number,
-		vehicleKnown: Boolean,
-		vehicleHasSoc: Boolean,
-		vehicleNotReachable: Boolean,
-		socBasedCharging: Boolean,
-		socBasedPlanning: Boolean,
-		capacity: Number,
-		range: Number,
-		rangePerSoc: Number,
-		socPerKwh: { type: Number, required: true },
 	},
-	emits: ["open-charging-plan-modal", "open-settings-modal"],
 	data() {
 		return {
 			tickerHandler: null as Timeout,
@@ -253,9 +330,14 @@ export default defineComponent({
 			pvRemainingInterpolated: this.pvRemaining,
 			chargeDurationInterpolated: this.chargeDuration,
 			chargeRemainingDurationInterpolated: this.chargeRemainingDuration,
+			loadpointViewportMaximized: false,
+			isDesktopBreakpoint: true,
 		};
 	},
 	computed: {
+		loadpointRootAttrs() {
+			return this.$attrs;
+		},
 		expandLoadpointHeader() {
 			return this.multipleLoadpoints && !this.fullWidth;
 		},
@@ -273,9 +355,6 @@ export default defineComponent({
 		},
 		heating() {
 			return this.chargerFeatureHeating;
-		},
-		continuous() {
-			return this.chargerFeatureContinuous;
 		},
 		phasesProps() {
 			return this.collectProps(Phases);
@@ -295,9 +374,26 @@ export default defineComponent({
 		showChargingIndicator() {
 			return this.charging && this.chargePower > 0;
 		},
+		vehicleKnown() {
+			return !!this.vehicleName;
+		},
+		vehicleHasSoc() {
+			return this.vehicleKnown && !this.vehicle?.features?.includes("Offline");
+		},
+		vehicleNotReachable() {
+			// online vehicle that was not reachable at startup
+			const features = this.vehicle?.features || [];
+			return features.includes("Offline") && features.includes("Retryable");
+		},
 		planTimeUnreachable() {
 			// 1 minute tolerance
 			return this.planOverrun > 60;
+		},
+		socBasedCharging() {
+			return this.vehicleHasSoc || this.vehicleSoc > 0;
+		},
+		socBasedPlanning() {
+			return this.socBasedCharging && this.vehicle?.capacity && this.vehicle?.capacity > 0;
 		},
 		pvPossible() {
 			return this.pvConfigured || this.gridConfigured;
@@ -317,6 +413,9 @@ export default defineComponent({
 		plannerForecast() {
 			return this.forecast?.planner;
 		},
+		shouldMaximizeFromRoute(): boolean {
+			return this.$route?.query?.["maximize"] === this.id;
+		},
 	},
 	watch: {
 		phaseRemaining() {
@@ -331,13 +430,32 @@ export default defineComponent({
 		chargeRemainingDuration() {
 			this.chargeRemainingDurationInterpolated = this.chargeRemainingDuration;
 		},
+		loadpointViewportMaximized(expanded: boolean) {
+			setBodyScrollLock(this.id, expanded);
+		},
+		shouldMaximizeFromRoute: {
+			handler(shouldMaximize: boolean) {
+				if (this.loadpointViewportMaximized !== shouldMaximize) {
+					this.loadpointViewportMaximized = shouldMaximize;
+				}
+			},
+			immediate: true,
+		},
 	},
 	mounted() {
 		this.tickerHandler = setInterval(this.tick, 1000);
+		this.updateBreakpointFlags();
+		window.addEventListener("resize", this.updateBreakpointFlags);
+		window.addEventListener("keydown", this.handleViewportEscape);
 	},
 	unmounted() {
 		if (this.tickerHandler) {
 			clearInterval(this.tickerHandler);
+		}
+		window.removeEventListener("resize", this.updateBreakpointFlags);
+		window.removeEventListener("keydown", this.handleViewportEscape);
+		if (this.loadpointViewportMaximized) {
+			setBodyScrollLock(this.id, false);
 		}
 	},
 	methods: {
@@ -367,6 +485,15 @@ export default defineComponent({
 		setLimitEnergy(kWh: number) {
 			api.post(this.apiPath("limitenergy") + "/" + kWh);
 		},
+		setMaxCurrent(maxCurrent: number) {
+			api.post(this.apiPath("maxcurrent") + "/" + maxCurrent);
+		},
+		setMinCurrent(minCurrent: number) {
+			api.post(this.apiPath("mincurrent") + "/" + minCurrent);
+		},
+		setPhasesConfigured(phases: PHASES) {
+			api.post(this.apiPath("phases") + "/" + phases);
+		},
 		changeVehicle(name: string) {
 			api.post(this.apiPath("vehicle") + `/${name}`);
 		},
@@ -376,6 +503,9 @@ export default defineComponent({
 		setBatteryBoost(batteryBoost: boolean) {
 			api.post(this.apiPath("batteryboost") + `/${batteryBoost ? "1" : "0"}`);
 		},
+		setBatteryBoostLimit(limit: number) {
+			api.post(this.apiPath("batteryboostlimit") + "/" + limit);
+		},
 		fmtPower(value: number) {
 			return this.fmtW(value, POWER_UNIT.AUTO);
 		},
@@ -383,7 +513,47 @@ export default defineComponent({
 			return this.fmtWh(value, POWER_UNIT.AUTO);
 		},
 		openSettingsModal() {
-			this.$emit("open-settings-modal");
+			const modal = Modal.getOrCreateInstance(
+				document.getElementById(`loadpointSettingsModal_${this.id}`) as HTMLElement
+			);
+			modal.show();
+		},
+		toggleViewport() {
+			if (this.loadpointViewportMaximized) {
+				this.collapseViewport();
+				return;
+			}
+			this.expandViewport();
+		},
+		updateBreakpointFlags() {
+			if (typeof window === "undefined") {
+				return;
+			}
+			this.isDesktopBreakpoint = window.innerWidth >= 576;
+		},
+		expandViewport() {
+			this.loadpointViewportMaximized = true;
+			const query = { ...this.$route.query, maximize: this.id };
+			this.$router.replace({ query });
+		},
+		collapseViewport() {
+			this.loadpointViewportMaximized = false;
+			const query = { ...this.$route.query };
+			delete query["maximize"];
+			this.$router.replace({ query });
+		},
+		handleViewportEscape(ev: KeyboardEvent) {
+			if (ev.defaultPrevented || ev.key !== "Escape" || !this.loadpointViewportMaximized) {
+				return;
+			}
+			const target = ev.target as HTMLElement | null;
+			if (target?.closest("input, textarea, select, [contenteditable='true']")) {
+				return;
+			}
+			if (document.querySelector(".modal.show")) {
+				return;
+			}
+			this.collapseViewport();
 		},
 	},
 });
@@ -392,10 +562,54 @@ export default defineComponent({
 <style scoped>
 @import "../../../css/breakpoints.css";
 
+.loadpoint-inline-host {
+	display: flex;
+	flex-direction: column;
+	height: 100%;
+	min-height: 0;
+}
+
+.loadpoint-viewport-overlay {
+	position: fixed;
+	inset: 0;
+	z-index: 1030;
+	display: flex;
+	flex-direction: column;
+	min-height: 100dvh;
+	min-height: 100vh;
+	background: var(--evcc-background);
+	overflow: hidden;
+}
+
 .loadpoint {
 	border-radius: 2rem;
 	color: var(--evcc-default-text);
 	background: var(--evcc-box);
+}
+
+@media (max-width: 991.98px) {
+	.loadpoint {
+		opacity: 1;
+		transform: scale(1);
+		transition-property: opacity, transform;
+		transition-duration: var(--evcc-transition-fast);
+		transition-timing-function: ease-in;
+	}
+	.loadpoint-unselected {
+		transform: scale(0.95);
+		opacity: 0.5;
+	}
+}
+
+.loadpoint--viewport-expanded {
+	min-height: 0;
+	flex: 1 1 auto;
+	overflow: auto;
+}
+
+.loadpoint-header-wide__title {
+	flex: 1 1 8rem;
+	min-width: 0;
 }
 
 .details > div {
