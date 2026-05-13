@@ -81,11 +81,7 @@ func TestCapsWrapping(t *testing.T) {
 	var m api.Meter
 
 	if mt, ok := api.Cap[api.Meter](c); ok {
-		if c, ok := c.(api.Capable); ok {
-			m = &capableMeter{Meter: mt, Capable: c}
-		} else {
-			m = mt
-		}
+		m = &capableMeter{Meter: mt, source: c}
 	}
 
 	{

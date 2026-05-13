@@ -112,6 +112,52 @@ func TestCap_ExtractedCapabilityLosesRegistry(t *testing.T) {
 	assert.Equal(t, 99.0, energy)
 }
 
+// meterWithSource mirrors core.capableMeter: Cap[Meter] extracted from a source that also
+// implements MeterEnergy directly while exposing unrelated entries only via Capable.
+type meterWithSource struct {
+	Meter
+	source any
+}
+
+func (c *meterWithSource) Capability(typ reflect.Type) (any, bool) {
+	if c.source != nil && reflect.TypeOf(c.source).Implements(typ) {
+		return c.source, true
+	}
+	if cap, ok := c.source.(Capable); ok {
+		return cap.Capability(typ)
+	}
+	return nil, false
+}
+
+// openWBProLikeCharger simulates implement.Caps + direct api.MeterEnergy on one type
+// (registry does not register MeterEnergy).
+type openWBProLikeCharger struct {
+	caps map[reflect.Type]any
+}
+
+func (o *openWBProLikeCharger) CurrentPower() (float64, error) { return 0, nil }
+
+func (o *openWBProLikeCharger) TotalEnergy() (float64, error) { return 42, nil }
+
+func (o *openWBProLikeCharger) Capability(typ reflect.Type) (any, bool) {
+	c, ok := o.caps[typ]
+	return c, ok
+}
+
+func TestCap_WrappedMeterFindsDirectSourceEnergy(t *testing.T) {
+	src := &openWBProLikeCharger{caps: make(map[reflect.Type]any)}
+	mt, ok := Cap[Meter](src)
+	require.True(t, ok)
+
+	wrapped := &meterWithSource{Meter: mt, source: src}
+	me, ok := Cap[MeterEnergy](wrapped)
+	require.True(t, ok, "MeterEnergy should resolve via source Implements check")
+
+	energy, err := me.TotalEnergy()
+	assert.NoError(t, err)
+	assert.Equal(t, 42.0, energy)
+}
+
 func TestCap_NilValue(t *testing.T) {
 	_, ok := Cap[MeterEnergy](nil)
 	assert.False(t, ok)

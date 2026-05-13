@@ -4,8 +4,10 @@ import (
 	"testing"
 	"time"
 
+	evbus "github.com/asaskevich/EventBus"
 	"github.com/benbjohnson/clock"
 	"github.com/evcc-io/evcc/api"
+	"github.com/evcc-io/evcc/api/implement"
 	"github.com/evcc-io/evcc/core/session"
 	serverdb "github.com/evcc-io/evcc/server/db"
 	"github.com/evcc-io/evcc/util"
@@ -20,6 +22,73 @@ func sessionStart(lp *Loadpoint) func(session *session.Session) {
 			session.Created = lp.clock.Now()
 		}
 	}
+}
+
+// capableSessionTestCharger mirrors openWB Pro: implement.Caps + direct Meter/MeterEnergy on the struct.
+type capableSessionTestCharger struct {
+	implement.Caps
+	energyKWh float64
+}
+
+func newCapableSessionTestCharger() *capableSessionTestCharger {
+	c := &capableSessionTestCharger{
+		Caps: implement.New(),
+	}
+	implement.Has(c, implement.Resurrector(func() error { return nil }))
+	return c
+}
+
+var _ api.Charger = (*capableSessionTestCharger)(nil)
+
+func (c *capableSessionTestCharger) Status() (api.ChargeStatus, error) { return api.StatusA, nil }
+
+func (c *capableSessionTestCharger) Enabled() (bool, error) { return false, nil }
+
+func (c *capableSessionTestCharger) Enable(bool) error { return nil }
+
+func (c *capableSessionTestCharger) MaxCurrent(int64) error { return nil }
+
+func (c *capableSessionTestCharger) CurrentPower() (float64, error) { return 0, nil }
+
+func (c *capableSessionTestCharger) TotalEnergy() (float64, error) { return c.energyKWh, nil }
+
+func TestSessionWithCapableChargerDirectMeterEnergy(t *testing.T) {
+	var err error
+	serverdb.Instance, err = serverdb.New("sqlite", ":memory:")
+	require.NoError(t, err)
+
+	db, err := session.NewStore("lpcap", serverdb.Instance)
+	require.NoError(t, err)
+
+	clock := clock.NewMock()
+	bus := evbus.New()
+
+	ch := newCapableSessionTestCharger()
+	ch.energyKWh = 100.5
+
+	lp := &Loadpoint{
+		log:     util.NewLogger("session-cap-test"),
+		clock:   clock,
+		db:      db,
+		bus:     bus,
+		charger: ch,
+	}
+	lp.configureChargerType(ch)
+
+	lp.createSession()
+	require.NotNil(t, lp.session)
+	require.NotNil(t, lp.session.MeterStart)
+	assert.InDelta(t, 100.5, *lp.session.MeterStart, 1e-9)
+
+	lp.updateSession(sessionStart(lp))
+
+	clock.Add(time.Hour)
+	ch.energyKWh = 103.25
+	lp.energyMetrics.Update(2.75)
+
+	lp.stopSession()
+	require.NotNil(t, lp.session.MeterStop)
+	assert.InDelta(t, 103.25, *lp.session.MeterStop, 1e-9)
 }
 
 func TestSession(t *testing.T) {

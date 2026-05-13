@@ -402,12 +402,24 @@ func (lp *Loadpoint) requestUpdate() {
 	}
 }
 
-// capableMeter wraps a meter with capability lookup from its source.
-// This preserves capability checks (like MeterEnergy, PhaseCurrents, PhaseVoltages) when
-// the meter was extracted from a decorated charger's capability registry.
+// capableMeter wraps a meter with capability lookup from the underlying source.
+// It preserves both direct interface implementations on the source (e.g. a charger
+// that exposes TotalEnergy on its struct) and entries in the source's api.Capable
+// registry (capabilities added via implement.Has / implement.May).
 type capableMeter struct {
 	api.Meter
-	api.Capable
+	source any
+}
+
+// Capability implements api.Capable.
+func (c *capableMeter) Capability(typ reflect.Type) (any, bool) {
+	if c.source != nil && reflect.TypeOf(c.source).Implements(typ) {
+		return c.source, true
+	}
+	if cap, ok := c.source.(api.Capable); ok {
+		return cap.Capability(typ)
+	}
+	return nil, false
 }
 
 // configureChargerType ensures that chargeMeter, Rate and Timer can use charger capabilities
@@ -419,14 +431,10 @@ func (lp *Loadpoint) configureChargerType(charger api.Charger) {
 		integrated = true
 
 		if mt, ok := api.Cap[api.Meter](charger); ok {
-			// preserve charger's capability registry so that subsequent
-			// capability checks on chargeMeter (e.g. MeterEnergy, PhaseCurrents)
-			// still work for decorated chargers (https://github.com/evcc-io/evcc/issues/28915)
-			if c, ok := charger.(api.Capable); ok {
-				lp.chargeMeter = &capableMeter{Meter: mt, Capable: c}
-			} else {
-				lp.chargeMeter = mt
-			}
+			// preserve direct implementations and the charger's capability registry so
+			// subsequent checks on chargeMeter (e.g. MeterEnergy, PhaseCurrents) work
+			// for decorated chargers and for implement.Caps-based chargers (#28915).
+			lp.chargeMeter = &capableMeter{Meter: mt, source: charger}
 		} else {
 			mt := new(wrapper.ChargeMeter)
 			_ = lp.bus.Subscribe(evChargeCurrent, lp.evChargeCurrentWrappedMeterHandler)
