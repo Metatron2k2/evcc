@@ -81,15 +81,6 @@
 						@click="openSettingsModal"
 					/>
 				</div>
-				<LoadpointSettingsModal
-					ref="loadpointSettingsModal"
-					v-bind="settingsModal"
-					@maxcurrent-updated="setMaxCurrent"
-					@mincurrent-updated="setMinCurrent"
-					@phasesconfigured-updated="setPhasesConfigured"
-					@batteryboostlimit-updated="setBatteryBoostLimit"
-				/>
-
 				<div
 					v-if="remoteDisabled"
 					class="alert alert-warning my-4 py-2"
@@ -147,6 +138,7 @@
 					@remove-vehicle="removeVehicle"
 					@open-loadpoint-settings="openSettingsModal"
 					@batteryboost-updated="setBatteryBoost"
+					@open-modal="(openArrivalTab) => $emit('open-charging-plan-modal', openArrivalTab)"
 				/>
 			</div>
 		</div>
@@ -164,7 +156,6 @@ import LabelAndValue from "../Helper/LabelAndValue.vue";
 import formatter, { POWER_UNIT } from "@/mixins/formatter";
 import collector from "@/mixins/collector.js";
 import SettingsButton from "./SettingsButton.vue";
-import SettingsModal from "./SettingsModal.vue";
 import VehicleIcon from "../VehicleIcon";
 import SessionInfo from "./SessionInfo.vue";
 import ViewportToggleButton from "./ViewportToggleButton.vue";
@@ -215,7 +206,6 @@ export default defineComponent({
 		Phases,
 		LabelAndValue,
 		LoadpointSettingsButton: SettingsButton,
-		LoadpointSettingsModal: SettingsModal,
 		LoadpointSessionInfo: SessionInfo,
 		VehicleIcon,
 		ViewportToggleButton,
@@ -322,6 +312,7 @@ export default defineComponent({
 		lastSmartCostLimit: Number,
 		lastSmartFeedInPriorityLimit: Number,
 	},
+	emits: ["open-charging-plan-modal", "open-settings-modal"],
 	data() {
 		return {
 			tickerHandler: null as Timeout,
@@ -363,9 +354,6 @@ export default defineComponent({
 		},
 		sessionInfoProps() {
 			return this.collectProps(SessionInfo);
-		},
-		settingsModal() {
-			return this.collectProps(SettingsModal);
 		},
 		vehicleProps() {
 			return this.collectProps(VehicleComponent);
@@ -512,10 +500,7 @@ export default defineComponent({
 			return this.fmtWh(value, POWER_UNIT.AUTO);
 		},
 		openSettingsModal() {
-			const modal = this.$refs["loadpointSettingsModal"] as
-				| InstanceType<typeof SettingsModal>
-				| undefined;
-			modal?.open(this.id);
+			this.$emit("open-settings-modal");
 		},
 		toggleViewport() {
 			if (this.loadpointViewportMaximized) {
