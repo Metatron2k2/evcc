@@ -82,7 +82,7 @@
 					/>
 				</div>
 				<LoadpointSettingsModal
-					:id="id"
+					ref="loadpointSettingsModal"
 					v-bind="settingsModal"
 					@maxcurrent-updated="setMaxCurrent"
 					@mincurrent-updated="setMinCurrent"
@@ -168,7 +168,6 @@ import SettingsModal from "./SettingsModal.vue";
 import VehicleIcon from "../VehicleIcon";
 import SessionInfo from "./SessionInfo.vue";
 import ViewportToggleButton from "./ViewportToggleButton.vue";
-import Modal from "bootstrap/js/dist/modal";
 import { defineComponent, type PropType } from "vue";
 import type {
 	CHARGE_MODE,
@@ -513,10 +512,10 @@ export default defineComponent({
 			return this.fmtWh(value, POWER_UNIT.AUTO);
 		},
 		openSettingsModal() {
-			const modal = Modal.getOrCreateInstance(
-				document.getElementById(`loadpointSettingsModal_${this.id}`) as HTMLElement
-			);
-			modal.show();
+			const modal = this.$refs["loadpointSettingsModal"] as
+				| InstanceType<typeof SettingsModal>
+				| undefined;
+			modal?.open(this.id);
 		},
 		toggleViewport() {
 			if (this.loadpointViewportMaximized) {
