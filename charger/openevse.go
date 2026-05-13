@@ -85,6 +85,8 @@ func NewOpenEVSE(uri, user, password string, cache time.Duration) (api.Charger, 
 		}
 	}
 
+	implement.Has(c, implement.MeterEnergy(c.TotalEnergy))
+
 	return c, nil
 }
 

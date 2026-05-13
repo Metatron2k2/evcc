@@ -145,6 +145,10 @@ func NewVestel(ctx context.Context, uri string, id uint8) (api.Charger, error) {
 	}
 	go wb.heartbeat(ctx, timeout)
 
+	implement.Has(wb, implement.MeterEnergy(wb.TotalEnergy))
+	implement.Has(wb, implement.PhaseCurrents(wb.Currents))
+	implement.Has(wb, implement.PhaseVoltages(wb.Voltages))
+
 	return wb, nil
 }
 

@@ -121,6 +121,10 @@ func NewMennekesCompact(ctx context.Context, uri, device, comset string, baudrat
 	// failsafe
 	go wb.heartbeat(ctx, mennekesHeartbeatInterval)
 
+	implement.Has(wb, implement.MeterEnergy(wb.TotalEnergy))
+	implement.Has(wb, implement.PhaseCurrents(wb.Currents))
+	implement.Has(wb, implement.PhaseVoltages(wb.Voltages))
+
 	return wb, nil
 }
 

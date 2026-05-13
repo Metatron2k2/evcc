@@ -50,6 +50,8 @@ func NewShellyFromConfig(other map[string]any) (api.Charger, error) {
 		implement.Has(c, implement.PhasePowers(phases.Powers))
 	}
 
+	implement.Has(c, implement.MeterEnergy(c.TotalEnergy))
+
 	return c, nil
 }
 

@@ -81,6 +81,10 @@ func NewNRGKickGen2FromConfig(ctx context.Context, other map[string]any) (api.Ch
 		}
 	}
 
+	implement.Has(nrg, implement.MeterEnergy(nrg.TotalEnergy))
+	implement.Has(nrg, implement.PhaseCurrents(nrg.Currents))
+	implement.Has(nrg, implement.PhaseVoltages(nrg.Voltages))
+
 	return nrg, nil
 }
 

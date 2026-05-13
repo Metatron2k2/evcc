@@ -107,6 +107,10 @@ func NewKSE(ctx context.Context, uri, device, comset string, baudrate int, slave
 		implement.Has(wb, implement.Identifier(wb.identify))
 	}
 
+	implement.Has(wb, implement.MeterEnergy(wb.TotalEnergy))
+	implement.Has(wb, implement.PhaseCurrents(wb.Currents))
+	implement.Has(wb, implement.PhaseVoltages(wb.Voltages))
+
 	return wb, nil
 }
 

@@ -127,6 +127,10 @@ func NewSolax(ctx context.Context, uri, device, comset string, baudrate int, pro
 		}
 	}
 
+	implement.Has(wb, implement.MeterEnergy(wb.TotalEnergy))
+	implement.Has(wb, implement.PhaseCurrents(wb.Currents))
+	implement.Has(wb, implement.PhaseVoltages(wb.Voltages))
+
 	return wb, nil
 }
 

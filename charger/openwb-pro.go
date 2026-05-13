@@ -76,6 +76,10 @@ func NewOpenWBPro(ctx context.Context, uri string, cache time.Duration) (*OpenWB
 		return res, err
 	}, cache)
 
+	implement.Has(wb, implement.MeterEnergy(wb.TotalEnergy))
+	implement.Has(wb, implement.PhaseCurrents(wb.Currents))
+	implement.Has(wb, implement.PhaseVoltages(wb.Voltages))
+
 	go wb.heartbeat(ctx, log)
 
 	return wb, nil

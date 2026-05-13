@@ -197,6 +197,9 @@ func NewOpenWB(log *util.Logger, mqttconf mqtt.Config, id int, topic string, p1p
 		implement.Has(c, implement.Battery(soc))
 	}
 
+	implement.Has(c, implement.MeterEnergy(c.TotalEnergy))
+	implement.Has(c, implement.PhaseCurrents(c.Currents))
+
 	return c, nil
 }
 

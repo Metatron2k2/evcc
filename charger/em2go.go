@@ -172,6 +172,10 @@ func (wb *Em2Go) initialize() (api.Charger, error) {
 		implement.Has(wb, implement.PhaseGetter(wb.getPhases))
 	}
 
+	implement.Has(wb, implement.MeterEnergy(wb.TotalEnergy))
+	implement.Has(wb, implement.PhaseCurrents(wb.Currents))
+	implement.Has(wb, implement.PhaseVoltages(wb.Voltages))
+
 	return wb, nil
 }
 

@@ -79,6 +79,10 @@ func newGoEFromConfig(v2 bool, other map[string]any) (api.Charger, error) {
 		implement.Has(c, implement.PhaseSwitcher(c.phases1p3p))
 	}
 
+	implement.Has(c, implement.MeterEnergy(c.TotalEnergy))
+	implement.Has(c, implement.PhaseCurrents(c.Currents))
+	implement.Has(c, implement.PhaseVoltages(c.Voltages))
+
 	return c, nil
 }
 

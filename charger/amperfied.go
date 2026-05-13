@@ -114,6 +114,10 @@ func NewAmperfied(ctx context.Context, uri string, slaveID uint8, phases bool) (
 		implement.Has(wb, implement.PhaseGetter(wb.getPhases))
 	}
 
+	implement.Has(wb, implement.MeterEnergy(wb.TotalEnergy))
+	implement.Has(wb, implement.PhaseCurrents(wb.Currents))
+	implement.Has(wb, implement.PhaseVoltages(wb.Voltages))
+
 	return wb, nil
 }
 

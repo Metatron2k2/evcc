@@ -96,6 +96,10 @@ func NewOpenWB20(ctx context.Context, uri string, slaveID uint8, connector uint1
 		base: (connector - 1) * 100,
 	}
 
+	implement.Has(wb, implement.MeterEnergy(wb.TotalEnergy))
+	implement.Has(wb, implement.PhaseCurrents(wb.Currents))
+	implement.Has(wb, implement.PhaseVoltages(wb.Voltages))
+
 	return wb, nil
 }
 

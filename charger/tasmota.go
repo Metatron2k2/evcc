@@ -79,6 +79,8 @@ func NewTasmota(embed embed, uri, user, password, usage string, channels []int, 
 		implement.Has(c, implement.PhaseCurrents(c.currents))
 	}
 
+	implement.Has(c, implement.MeterEnergy(c.TotalEnergy))
+
 	return c, nil
 }
 

@@ -106,6 +106,10 @@ func NewAlfen(ctx context.Context, uri string, slaveID uint8) (api.Charger, erro
 		wb.log.DEBUG.Println("detected 1p alfen")
 	}
 
+	implement.Has(wb, implement.MeterEnergy(wb.TotalEnergy))
+	implement.Has(wb, implement.PhaseCurrents(wb.Currents))
+	implement.Has(wb, implement.PhaseVoltages(wb.Voltages))
+
 	return wb, nil
 }
 

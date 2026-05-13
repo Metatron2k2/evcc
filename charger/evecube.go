@@ -167,6 +167,10 @@ func NewEVECUBE(uri, user, password string, connector int, cache time.Duration) 
 		return nil, api.ErrSponsorRequired
 	}
 
+	implement.Has(wb, implement.MeterEnergy(wb.TotalEnergy))
+	implement.Has(wb, implement.PhaseCurrents(wb.Currents))
+	implement.Has(wb, implement.PhaseVoltages(wb.Voltages))
+
 	return wb, nil
 }
 
