@@ -127,6 +127,7 @@ export interface State {
   ocpp?: Ocpp;
   ocppforwarder?: ConfigStatus<OcppForwarderRule[], OcppForwarderSession[]>;
   optimizer?: boolean;
+  mcp?: boolean;
   uilock?: UILockConfig;
 }
 
